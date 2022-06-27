@@ -4,7 +4,7 @@ step "Deploy Mx - DataLoad Configuration" {
         action_type = "Octopus.DeployRelease"
         properties = {
             Octopus.Action.DeployRelease.DeploymentCondition = "IfNotCurrentVersion"
-            Octopus.Action.DeployRelease.ProjectId = "Mx - DataLoad Configuration"
+            Octopus.Action.DeployRelease.ProjectId = "mx-dataload-configuration"
         }
     }
 }
