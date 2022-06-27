@@ -4,7 +4,8 @@ step "Deploy Mx - DataLoad Configuration" {
         action_type = "Octopus.DeployRelease"
         properties = {
             Octopus.Action.DeployRelease.DeploymentCondition = "IfNotCurrentVersion"
-            Octopus.Action.DeployRelease.ProjectId = "Projects-2224"
+            Octopus.Action.DeployRelease.ProjectId = "Mx - DataLoad Configuration"
+            Octopus.Action.RunOnServer = "false"
         }
     }
 }
@@ -81,6 +82,7 @@ step "Install - Windows Service Worker" {
             Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
             Octopus.Action.Package.JsonConfigurationVariablesTargets = "#{AppSettingsLocations}\\appsettings.json"
             Octopus.Action.Package.PackageId = "Mx.DataLoad.Worker.Service"
+            Octopus.Action.RunOnServer = "false"
             Octopus.Action.WindowsService.Arguments = "eSP#{Octopus.Environment.Name}DataLoad"
             Octopus.Action.WindowsService.CreateOrUpdateService = "True"
             Octopus.Action.WindowsService.Dependencies = "Dnscache"
@@ -113,6 +115,7 @@ step "Install - Glovia Module" {
             Octopus.Action.DeployRelease.DeploymentCondition = "Always"
             Octopus.Action.DeployRelease.ProjectId = "Mx - DataLoad - Glovia"
             Octopus.Action.DeployRelease.Variables = "{\"AppSettingsLocations\":\"#{AppSettingsLocations}\",\"Restart:DataLoad\":\"0\"}"
+            Octopus.Action.RunOnServer = "false"
         }
         tenant_tags = ["ERP System/Glovia"]
     }
@@ -127,6 +130,7 @@ step "Install - IFS Module" {
             Octopus.Action.DeployRelease.DeploymentCondition = "Always"
             Octopus.Action.DeployRelease.ProjectId = "Mx - DataLoad - IFS"
             Octopus.Action.DeployRelease.Variables = "{\"Restart:DataLoad\":\"0\",\"AppSettingsLocations\":\"#{AppSettingsLocations}\"}"
+            Octopus.Action.RunOnServer = "false"
         }
         tenant_tags = ["ERP System/IFS"]
     }
@@ -141,6 +145,7 @@ step "Install - Infor Module" {
             Octopus.Action.DeployRelease.DeploymentCondition = "Always"
             Octopus.Action.DeployRelease.ProjectId = "Mx - DataLoad - Infor"
             Octopus.Action.DeployRelease.Variables = "{\"Restart:DataLoad\":\"0\",\"AppSettingsLocations\":\"#{AppSettingsLocations}\"}"
+            Octopus.Action.RunOnServer = "false"
         }
         tenant_tags = ["ERP System/Infor"]
     }
@@ -165,6 +170,7 @@ step "Install - Demo System Maintenance Module" {
             Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
             Octopus.Action.Package.JsonConfigurationVariablesTargets = "#{AppSettingsLocations}\\*.json"
             Octopus.Action.Package.PackageId = "Mx.DataLoad.Modules.Maintenance"
+            Octopus.Action.RunOnServer = "false"
         }
 
         packages {
@@ -198,6 +204,7 @@ step "Install - Legacy Module" {
             Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
             Octopus.Action.Package.JsonConfigurationVariablesTargets = "#{AppSettingsLocations}\\*.json"
             Octopus.Action.Package.PackageId = "Mx.DataLoad.Modules.Legacy"
+            Octopus.Action.RunOnServer = "false"
         }
         tenant_tags = ["ERP System/Legacy"]
 
@@ -232,6 +239,7 @@ step "Install - SAP Module" {
             Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
             Octopus.Action.Package.JsonConfigurationVariablesTargets = "#{AppSettingsLocations}\\*.json"
             Octopus.Action.Package.PackageId = "Mx.DataLoad.Modules.Xml"
+            Octopus.Action.RunOnServer = "false"
         }
 
         packages {
@@ -265,6 +273,7 @@ step "Install - DocumentRepository Module" {
             Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
             Octopus.Action.Package.JsonConfigurationVariablesTargets = "#{AppSettingsLocations}\\*.json"
             Octopus.Action.Package.PackageId = "Mx.DataLoad.Modules.DocRepository"
+            Octopus.Action.RunOnServer = "false"
         }
 
         packages {
