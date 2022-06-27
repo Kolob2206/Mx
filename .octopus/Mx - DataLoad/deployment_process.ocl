@@ -1,0 +1,381 @@
+step "Deploy Mx - DataLoad Configuration" {
+
+    action {
+        action_type = "Octopus.DeployRelease"
+        properties = {
+            Octopus.Action.DeployRelease.DeploymentCondition = "IfNotCurrentVersion"
+            Octopus.Action.DeployRelease.ProjectId = "Mx - DataLoad Configuration"
+        }
+    }
+}
+
+step "Windows Service - Reset Recovery Options" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        properties = {
+            FirstFailureAction = "\"\""
+            FirstFailureDelay = "5000"
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Template.Id = "ActionTemplates-164"
+            Octopus.Action.Template.Version = "12"
+            Reset = "86400"
+            SecondFailureAction = "\"\""
+            SecondFailureDelay = "10000"
+            ServiceName = "eSP#{Octopus.Environment.Name}DataLoad"
+            ThirdFailureAction = "\"\""
+            ThirdFailureDelay = "15000"
+        }
+    }
+}
+
+step "Stop DataLoad Windows Service" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Template.Id = "ActionTemplates-321"
+            Octopus.Action.Template.Version = "8"
+            ServiceName = "eSP#{Octopus.Environment.Name}DataLoad"
+            ServiceStopTimeout = "60"
+        }
+        worker_pool_variable = ""
+    }
+}
+
+step "Set - Location for appsettings and Nlog configs" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.Package.DownloadOnTentacle = "False"
+            Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
+            Octopus.Action.Package.PackageId = "Mx.DataLoad.Worker.Service"
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptFileName = "DataLoadRegistryKeys.ps1"
+            Octopus.Action.Script.ScriptParameters = "-ServiceName eSP#{Octopus.Environment.Name}DataLoad -Directory #{AppSettingsLocations}"
+            Octopus.Action.Script.ScriptSource = "Package"
+        }
+
+        packages {
+            acquisition_location = "Server"
+            feed = "Octopus Server (built-in)"
+            package_id = "Mx.DataLoad.Worker.Service"
+        }
+    }
+}
+
+step "Add AppSettings File if Missing" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        action_type = "Octopus.Script"
+        environments = ["Development"]
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                if(-Not (Test-Path -path $AppSettingsLocations)) {
+                	Write-Highlight "appsettings directory is missing and will be created"
+                	New-Item -ItemType Directory -Force -Path $AppSettingsLocations
+                    $appSettingsFile = $OctopusParameters["Octopus.Action.Package[Mx.DataLoad.Worker.Service].ExtractedPath"] + "\appsettings.json"
+                    Copy-Item -Path $appSettingsFile -Destination $AppSettingsLocations
+                }
+            EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+        }
+
+        packages "Mx.DataLoad.Worker.Service" {
+            acquisition_location = "Server"
+            feed = "Octopus Server (built-in)"
+            package_id = "Mx.DataLoad.Worker.Service"
+            properties = {
+                Extract = "True"
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
+
+step "Install - Windows Service Worker" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        action_type = "Octopus.WindowsService"
+        properties = {
+            Octopus.Action.EnabledFeatures = "Octopus.Features.WindowsService,Octopus.Features.JsonConfigurationVariables"
+            Octopus.Action.Package.DownloadOnTentacle = "False"
+            Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
+            Octopus.Action.Package.JsonConfigurationVariablesTargets = "#{AppSettingsLocations}\\appsettings.json"
+            Octopus.Action.Package.PackageId = "Mx.DataLoad.Worker.Service"
+            Octopus.Action.WindowsService.Arguments = "eSP#{Octopus.Environment.Name}DataLoad"
+            Octopus.Action.WindowsService.CreateOrUpdateService = "True"
+            Octopus.Action.WindowsService.Dependencies = "Dnscache"
+            Octopus.Action.WindowsService.Description = "eSP ETL Engine processes data for the #{Octopus.Environment.Name} environment."
+            Octopus.Action.WindowsService.DesiredStatus = "Stopped"
+            Octopus.Action.WindowsService.DisplayName = "eSP DataLoad for #{Octopus.Environment.Name}"
+            Octopus.Action.WindowsService.ExecutablePath = "Mx.DataLoad.Worker.Service.exe"
+            Octopus.Action.WindowsService.ServiceAccount = "LocalSystem"
+            Octopus.Action.WindowsService.ServiceName = "eSP#{Octopus.Environment.Name}DataLoad"
+            Octopus.Action.WindowsService.StartMode = "delayed-auto"
+        }
+
+        packages {
+            acquisition_location = "Server"
+            feed = "Octopus Server (built-in)"
+            package_id = "Mx.DataLoad.Worker.Service"
+            properties = {
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
+
+step "Install - Glovia Module" {
+
+    action {
+        action_type = "Octopus.DeployRelease"
+        is_required = true
+        properties = {
+            Octopus.Action.DeployRelease.DeploymentCondition = "Always"
+            Octopus.Action.DeployRelease.ProjectId = "Mx - DataLoad - Glovia"
+            Octopus.Action.DeployRelease.Variables = "{\"AppSettingsLocations\":\"#{AppSettingsLocations}\",\"Restart:DataLoad\":\"0\"}"
+        }
+        tenant_tags = ["ERP System/Glovia"]
+    }
+}
+
+step "Install - IFS Module" {
+
+    action {
+        action_type = "Octopus.DeployRelease"
+        is_required = true
+        properties = {
+            Octopus.Action.DeployRelease.DeploymentCondition = "Always"
+            Octopus.Action.DeployRelease.ProjectId = "Mx - DataLoad - IFS"
+            Octopus.Action.DeployRelease.Variables = "{\"Restart:DataLoad\":\"0\",\"AppSettingsLocations\":\"#{AppSettingsLocations}\"}"
+        }
+        tenant_tags = ["ERP System/IFS"]
+    }
+}
+
+step "Install - Infor Module" {
+
+    action {
+        action_type = "Octopus.DeployRelease"
+        is_required = true
+        properties = {
+            Octopus.Action.DeployRelease.DeploymentCondition = "Always"
+            Octopus.Action.DeployRelease.ProjectId = "Mx - DataLoad - Infor"
+            Octopus.Action.DeployRelease.Variables = "{\"Restart:DataLoad\":\"0\",\"AppSettingsLocations\":\"#{AppSettingsLocations}\"}"
+        }
+        tenant_tags = ["ERP System/Infor"]
+    }
+}
+
+step "Install - Demo System Maintenance Module" {
+    properties = {
+        Octopus.Action.TargetRoles = "demo"
+    }
+
+    action {
+        action_type = "Octopus.TentaclePackage"
+        properties = {
+            Octopus.Action.CustomScripts.PreDeploy.ps1 = <<-EOT
+                Set-OctopusVariable -name "Modules:Paths:Demo:Path" -value $OctopusParameters["Octopus.Action[Install - Demo System Maintenance Module].Output.Package.InstallationDirectoryPath"]
+                
+                $appSettingsFile = Join-Path -Path $AppSettingsLocations -ChildPath "appsettings.json"
+                Add-DataLoadModule $appSettingsFile "Demo"
+            EOT
+            Octopus.Action.EnabledFeatures = "Octopus.Features.CustomScripts,Octopus.Features.JsonConfigurationVariables"
+            Octopus.Action.Package.DownloadOnTentacle = "False"
+            Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
+            Octopus.Action.Package.JsonConfigurationVariablesTargets = "#{AppSettingsLocations}\\*.json"
+            Octopus.Action.Package.PackageId = "Mx.DataLoad.Modules.Maintenance"
+        }
+
+        packages {
+            acquisition_location = "Server"
+            feed = "Octopus Server (built-in)"
+            package_id = "Mx.DataLoad.Modules.Maintenance"
+            properties = {
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
+
+step "Install - Legacy Module" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        action_type = "Octopus.TentaclePackage"
+        is_required = true
+        properties = {
+            Octopus.Action.CustomScripts.PreDeploy.ps1 = <<-EOT
+                Set-OctopusVariable -name "Modules:Paths:Legacy:Path" -value $OctopusParameters["Octopus.Action[Install - Legacy Module].Output.Package.InstallationDirectoryPath"]
+                
+                $appSettingsFile = Join-Path -Path $AppSettingsLocations -ChildPath "appsettings.json"
+                Add-DataLoadModule $appSettingsFile "Legacy"
+            EOT
+            Octopus.Action.EnabledFeatures = "Octopus.Features.CustomScripts,Octopus.Features.JsonConfigurationVariables"
+            Octopus.Action.Package.DownloadOnTentacle = "False"
+            Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
+            Octopus.Action.Package.JsonConfigurationVariablesTargets = "#{AppSettingsLocations}\\*.json"
+            Octopus.Action.Package.PackageId = "Mx.DataLoad.Modules.Legacy"
+        }
+        tenant_tags = ["ERP System/Legacy"]
+
+        packages {
+            acquisition_location = "Server"
+            feed = "Octopus Server (built-in)"
+            package_id = "Mx.DataLoad.Modules.Legacy"
+            properties = {
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
+
+step "Install - SAP Module" {
+    properties = {
+        Octopus.Action.TargetRoles = "sap"
+    }
+
+    action {
+        action_type = "Octopus.TentaclePackage"
+        properties = {
+            Octopus.Action.CustomScripts.PreDeploy.ps1 = <<-EOT
+                Set-OctopusVariable -name "Modules:Paths:Xml:Path" -value $OctopusParameters["Octopus.Action[Install - SAP Module].Output.Package.InstallationDirectoryPath"]
+                
+                $appSettingsFile = Join-Path -Path $AppSettingsLocations -ChildPath "appsettings.json"
+                Add-DataLoadModule $appSettingsFile "Xml"
+            EOT
+            Octopus.Action.EnabledFeatures = "Octopus.Features.CustomDirectory,Octopus.Features.CustomScripts,Octopus.Features.JsonConfigurationVariables,Octopus.Features.SubstituteInFiles"
+            Octopus.Action.Package.CustomInstallationDirectory = "#{Octopus.Action[Install - Windows Service Worker].Output.Package.InstallationDirectoryPath}\\lib\\net471\\"
+            Octopus.Action.Package.DownloadOnTentacle = "False"
+            Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
+            Octopus.Action.Package.JsonConfigurationVariablesTargets = "#{AppSettingsLocations}\\*.json"
+            Octopus.Action.Package.PackageId = "Mx.DataLoad.Modules.Xml"
+        }
+
+        packages {
+            acquisition_location = "Server"
+            feed = "Octopus Server (built-in)"
+            package_id = "Mx.DataLoad.Modules.Xml"
+            properties = {
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
+
+step "Install - DocumentRepository Module" {
+    properties = {
+        Octopus.Action.TargetRoles = "docRepo"
+    }
+
+    action {
+        action_type = "Octopus.TentaclePackage"
+        properties = {
+            Octopus.Action.CustomScripts.PreDeploy.ps1 = <<-EOT
+                Set-OctopusVariable -name "Modules:Paths:DocRepo:Path" -value $OctopusParameters["Octopus.Action[Install - DocumentRepository Module].Output.Package.InstallationDirectoryPath"]
+                
+                $appSettingsFile = Join-Path -Path $AppSettingsLocations -ChildPath "appsettings.json"
+                Add-DataLoadModule $appSettingsFile "DocRepo"
+            EOT
+            Octopus.Action.EnabledFeatures = "Octopus.Features.CustomDirectory,Octopus.Features.CustomScripts,Octopus.Features.JsonConfigurationVariables,Octopus.Features.SubstituteInFiles"
+            Octopus.Action.Package.CustomInstallationDirectory = "#{Octopus.Action[Install - Windows Service].Output.Package.InstallationDirectoryPath}\\lib\\net471\\"
+            Octopus.Action.Package.DownloadOnTentacle = "False"
+            Octopus.Action.Package.FeedId = "Octopus Server (built-in)"
+            Octopus.Action.Package.JsonConfigurationVariablesTargets = "#{AppSettingsLocations}\\*.json"
+            Octopus.Action.Package.PackageId = "Mx.DataLoad.Modules.DocRepository"
+        }
+
+        packages {
+            acquisition_location = "Server"
+            feed = "Octopus Server (built-in)"
+            package_id = "Mx.DataLoad.Modules.DocRepository"
+            properties = {
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
+
+step "Windows Service - Set Recovery on Failure Actions" {
+    condition = "Always"
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        is_required = true
+        properties = {
+            FirstFailureAction = "restart"
+            FirstFailureDelay = "180000"
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Template.Id = "ActionTemplates-164"
+            Octopus.Action.Template.Version = "12"
+            Reset = "0"
+            SecondFailureAction = "restart"
+            SecondFailureDelay = "180000"
+            ServiceName = "eSP#{Octopus.Environment.Name}DataLoad"
+            ThirdFailureAction = "restart"
+            ThirdFailureDelay = "180000"
+        }
+    }
+}
+
+step "Start DataLoad" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                $ServiceName = $('eSP'+$OctopusParameters["Octopus.Environment.Name"]+'DataLoad')
+                Write-Host "Service Name: $ServiceName"
+                Start-Service -Name $ServiceName
+            EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+        }
+    }
+}
+
+step "Set Service Name Variable" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                Set-OctopusVariable -name "DataLoad:ServiceName" -value $('eSP'+$OctopusParameters["Octopus.Environment.Name"]+'DataLoad')
+                Write-Host "DataLoad Windows Service Name: " $OctopusParameters["DataLoad:ServiceName"]
+            EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+        }
+    }
+}
