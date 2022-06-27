@@ -1,7 +1,16 @@
+release_notes_template = <<-EOT
+        Here are the notes for the packages
+        #{each package in Octopus.Release.Package}
+        - #{package.PackageId} #{package.Version}
+        #{each workItem in package.WorkItems}
+            - [#{workItem.Description}](#{workItem.LinkUrl})
+        #{/each}
+        #{/each}
+    EOT
+
 connectivity_policy {
-    allow_deployments_to_no_targets = true
 }
 
 versioning_strategy {
-    template = "#{Octopus.Version.LastMajor}.#{Octopus.Version.LastMinor}.#{Octopus.Version.NextPatch}"
+    template = "#{Octopus.Version.LastMajor}.#{Octopus.Version.LastMinor}.#{Octopus.Version.NextPatch}#{if Octopus.Release.Channel.Name==\"Alpha\"}-alpha.i#{/if}"
 }

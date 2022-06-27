@@ -1,0 +1,86 @@
+step "Chocolatey - Ensure Installed" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Template.Id = "ActionTemplates-1"
+            Octopus.Action.Template.Version = "7"
+        }
+    }
+}
+
+step "Chocolatey - Install or Update .Net Packages" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                choco upgrade dotnet-6.0-runtime -y
+                # choco upgrade dotnetfx --version 4.7.2 -y
+                choco upgrade powershell -y
+                
+                if((Get-WMIObject win32_operatingsystem).name -Match "2019") {
+                    Write-Host "Windows Server 2019 Found - Installing .Net Framework 4.8"
+                	Write-Host "See: https://github.com/OctopusDeploy/Issues/issues/5755 for Details"
+                    choco upgrade dotnetfx -y
+                }
+            EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+        }
+    }
+}
+
+step "Chocolatey - Install or Update SQL Tools" {
+    properties = {
+        Octopus.Action.TargetRoles = "dataload"
+    }
+
+    action {
+        action_type = "Octopus.Script"
+        environments = ["Test", "Development"]
+        is_disabled = true
+        notes = <<-EOT
+                - Azure Data Studio
+                - Oracle SQL Developer
+            EOT
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                cup azure-data-studio
+                -y oracle-sql-developer --params="'/Username:twurm@e-Ventus.com /Password:pXicJmCxmTBX7N9RH26jVfAM'"
+            EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+        }
+    }
+}
+
+step "Update Nuget and PowerShellGet" {
+    properties = {
+        Octopus.Action.TargetRoles = "database"
+    }
+
+    action {
+        action_type = "Octopus.Script"
+        properties = {
+            Octopus.Action.RunOnServer = "false"
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                try{
+                Install-PackageProvider NuGet
+                Update-Module -Name PowerShellGet -Force
+                }catch{}
+            EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+        }
+        worker_pool_variable = ""
+    }
+}
