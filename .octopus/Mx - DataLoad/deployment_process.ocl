@@ -9,45 +9,6 @@ step "Deploy Mx - DataLoad Configuration" {
     }
 }
 
-step "Windows Service - Reset Recovery Options" {
-    properties = {
-        Octopus.Action.TargetRoles = "dataload"
-    }
-
-    action {
-        properties = {
-            FirstFailureAction = "\"\""
-            FirstFailureDelay = "5000"
-            Octopus.Action.RunOnServer = "false"
-            Octopus.Action.Template.Id = "ActionTemplates-164"
-            Octopus.Action.Template.Version = "12"
-            Reset = "86400"
-            SecondFailureAction = "\"\""
-            SecondFailureDelay = "10000"
-            ServiceName = "eSP#{Octopus.Environment.Name}DataLoad"
-            ThirdFailureAction = "\"\""
-            ThirdFailureDelay = "15000"
-        }
-    }
-}
-
-step "Stop DataLoad Windows Service" {
-    properties = {
-        Octopus.Action.TargetRoles = "dataload"
-    }
-
-    action {
-        properties = {
-            Octopus.Action.RunOnServer = "false"
-            Octopus.Action.Template.Id = "ActionTemplates-321"
-            Octopus.Action.Template.Version = "8"
-            ServiceName = "eSP#{Octopus.Environment.Name}DataLoad"
-            ServiceStopTimeout = "60"
-        }
-        worker_pool_variable = ""
-    }
-}
-
 step "Set - Location for appsettings and Nlog configs" {
     properties = {
         Octopus.Action.TargetRoles = "dataload"
@@ -313,30 +274,6 @@ step "Install - DocumentRepository Module" {
             properties = {
                 SelectionMode = "immediate"
             }
-        }
-    }
-}
-
-step "Windows Service - Set Recovery on Failure Actions" {
-    condition = "Always"
-    properties = {
-        Octopus.Action.TargetRoles = "dataload"
-    }
-
-    action {
-        is_required = true
-        properties = {
-            FirstFailureAction = "restart"
-            FirstFailureDelay = "180000"
-            Octopus.Action.RunOnServer = "false"
-            Octopus.Action.Template.Id = "ActionTemplates-164"
-            Octopus.Action.Template.Version = "12"
-            Reset = "0"
-            SecondFailureAction = "restart"
-            SecondFailureDelay = "180000"
-            ServiceName = "eSP#{Octopus.Environment.Name}DataLoad"
-            ThirdFailureAction = "restart"
-            ThirdFailureDelay = "180000"
         }
     }
 }
